@@ -21,7 +21,7 @@ app = FastAPI(title="Llama Secure API")
 
 # Limiter
 limiter = Limiter(key_func=get_remote_address)
-app.state.limiter = limiter  # ⚡ fix slowapi error
+app.state.limiter = limiter  
 
 # Middleware
 app.add_middleware(SlowAPIMiddleware)
@@ -41,7 +41,7 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup_event():
     try:
-        load_model(dtype="float16", use_auth_token=None)  # ⚡ fix warnings
+        load_model()  # ⚡ appelle sans argument, dtype géré en interne
         logger.info("Model preloaded")
     except Exception as e:
         logger.warning(f"Model preload failed: {e}")
