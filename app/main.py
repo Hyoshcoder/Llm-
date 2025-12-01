@@ -14,11 +14,16 @@ from .schemas import ChatRequest, ChatResponse
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("llama-secure-api")
 
-# Initialize limiter
-limiter = Limiter(key_func=get_remote_address)
+# ------------------------------
+# Initialize FastAPI & Limiter
+# ------------------------------
 app = FastAPI(title="Llama Secure API")
 
-# Middleware & Exception handler
+# Limiter
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter  # ⚡ fix slowapi error
+
+# Middleware
 app.add_middleware(SlowAPIMiddleware)
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -30,26 +35,34 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Preload model at startup
+# ------------------------------
+# Startup event: preload model
+# ------------------------------
 @app.on_event("startup")
 async def startup_event():
     try:
-        load_model()
+        load_model(dtype="float16", use_auth_token=None)  # ⚡ fix warnings
         logger.info("Model preloaded")
     except Exception as e:
         logger.warning(f"Model preload failed: {e}")
 
+# ------------------------------
 # Health check
+# ------------------------------
 @app.get("/health")
 async def health():
     return {"status": "ok"}
 
+# ------------------------------
 # Model info
+# ------------------------------
 @app.get("/model")
 async def model_info():
     return {"model": MODEL_NAME}
 
-# Chat endpoint with rate limiting and token auth
+# ------------------------------
+# Chat endpoint
+# ------------------------------
 @app.post("/chat", response_model=ChatResponse)
 @limiter.limit(RATE_LIMIT)
 async def chat(request: Request, req: ChatRequest, ok: bool = Depends(verify_token)):
